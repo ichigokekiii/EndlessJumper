@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "964709850070",
+    "project_id": "endless-jumper-dfce8",
+    "storage_bucket": "endless-jumper-dfce8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964709850070:android:826de975587b75d9c6e277",
+        "android_client_info": {
+          "package_name": "com.example.endlessjumper"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDP2o3OsWn7Q-X1PHqYnPNquQcCtMFiFrI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
