@@ -21,6 +21,12 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
     private var screenWidth = 0
     private var screenHeight = 0
 
+    // Title screen state
+    private var isInTitleScreen = true
+    private var titleAlpha = 255f
+    private var tapToStartAlpha = 255
+    private var tapAlphaDirection = -5
+
     // Game objects
     private var player: Player? = null
     private val platforms = mutableListOf<Platform>()
@@ -85,6 +91,9 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
 
     private fun resetGame() {
         isGameOver = false
+        isInTitleScreen = true  // Start in title screen
+        titleAlpha = 255f  // Full opacity
+        tapToStartAlpha = 255
         cameraY = 0f
         targetCameraY = 0f
         score = 0
@@ -93,8 +102,46 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
         powerUpManager.reset()
         enemies.clear()
         enemySpawnCounter = 0
-        player = Player(screenWidth, screenHeight)
+
         generateInitialPlatforms()
+
+        // Create player AFTER platforms exist
+        player = Player(screenWidth, screenHeight)
+
+        // Position player HIGHER so they land on the platform instead of falling through
+        val startPlatform = platforms.firstOrNull { it.y >= screenHeight - 200f }
+        if (startPlatform != null) {
+            player?.x = startPlatform.x + startPlatform.width / 2 - 30f
+            player?.y = startPlatform.y - 250f  // HIGHER - 250 pixels above platform!
+            player?.velocityY = 0f
+        }
+    }
+
+    private fun restartGame() {
+        isGameOver = false
+        isInTitleScreen = false  // NO title screen on restart!
+        titleAlpha = 0f  // No title
+        cameraY = 0f
+        targetCameraY = 0f
+        score = 0
+        landedPlatforms.clear()
+        powerUps.clear()
+        powerUpManager.reset()
+        enemies.clear()
+        enemySpawnCounter = 0
+
+        generateInitialPlatforms()
+
+        // Create player AFTER platforms exist
+        player = Player(screenWidth, screenHeight)
+
+        // Position player HIGHER so they land on the platform instead of falling through
+        val startPlatform = platforms.firstOrNull { it.y >= screenHeight - 200f }
+        if (startPlatform != null) {
+            player?.x = startPlatform.x + startPlatform.width / 2 - 30f
+            player?.y = startPlatform.y - 250f  // HIGHER - 250 pixels above platform!
+            player?.velocityY = 0f
+        }
     }
 
     private fun generateInitialPlatforms() {
@@ -154,6 +201,13 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // Title screen tap to start
+        if (isInTitleScreen && event.action == MotionEvent.ACTION_DOWN) {
+            performClick()
+            isInTitleScreen = false  // Start game!
+            return true
+        }
+
         if (isGameOver) {
             when (event.action) {
                 MotionEvent.ACTION_UP -> {
@@ -170,7 +224,7 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
                     // Play Again button
                     val playAgainY = screenHeight / 2f + 80f
                     if (isButtonClicked(touchX, touchY, buttonCenterX - 180f, playAgainY, buttonWidth, buttonHeight)) {
-                        resetGame()
+                        restartGame()
                         return true
                     }
 
@@ -184,7 +238,6 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
                     // Exit button
                     val exitY = leaderboardY + 90f
                     if (isButtonClicked(touchX, touchY, buttonCenterX - 180f, exitY, buttonWidth, buttonHeight)) {
-                        // Exit to main menu or close app
                         (context as? android.app.Activity)?.finish()
                         return true
                     }
@@ -263,6 +316,25 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
     }
 
     private fun update() {
+        // Title screen - just animate background
+        if (isInTitleScreen) {
+            spaceBackground?.update()
+
+            // DON'T fade title yet - only blink "TAP TO START"
+            tapToStartAlpha += tapAlphaDirection
+            if (tapToStartAlpha <= 100 || tapToStartAlpha >= 255) {
+                tapAlphaDirection *= -1
+            }
+
+            return  // Don't run game logic yet
+        }
+
+        // Fade out title AFTER user taps (when not in title screen anymore)
+        if (titleAlpha > 0) {
+            titleAlpha -= 8f
+            if (titleAlpha < 0) titleAlpha = 0f
+        }
+
         if (isGameOver) return
 
         spaceBackground?.update()
@@ -453,6 +525,39 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
     }
 
     private fun drawUI(canvas: Canvas) {
+        // TITLE SCREEN
+        if (isInTitleScreen || titleAlpha > 0) {
+            val alpha = titleAlpha.toInt().coerceIn(0, 255)
+
+            if (alpha > 0) {
+                // Title
+                paint.color = Color.argb(alpha, 255, 255, 255)
+                paint.textSize = 80f
+                paint.textAlign = Paint.Align.CENTER
+                paint.isFakeBoldText = true
+                paint.setShadowLayer(10f, 0f, 0f, Color.argb(alpha, 50, 150, 200))
+                canvas.drawText("SPACE", screenWidth / 2f, screenHeight / 3f - 50f, paint)
+                canvas.drawText("JUMPER", screenWidth / 2f, screenHeight / 3f + 40f, paint)
+                paint.clearShadowLayer()
+
+                // Subtitle
+                paint.textSize = 30f
+                paint.color = Color.argb(alpha, 150, 150, 150)
+                paint.isFakeBoldText = false
+                canvas.drawText("Endless Adventure", screenWidth / 2f, screenHeight / 3f + 100f, paint)
+
+                // TAP TO START (blinking)
+                val tapAlphaFinal = ((tapToStartAlpha / 255f) * (alpha / 255f) * 255).toInt()
+                paint.color = Color.argb(tapAlphaFinal, 255, 255, 255)
+                paint.textSize = 40f
+                paint.isFakeBoldText = true
+                canvas.drawText("TAP TO START", screenWidth / 2f, screenHeight - 80f, paint)
+            }
+
+            if (isInTitleScreen) return  // Don't draw game UI yet
+        }
+
+        // GAME UI
         paint.color = Color.WHITE
         paint.textSize = 70f
         paint.textAlign = Paint.Align.LEFT
@@ -479,8 +584,8 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
             canvas.drawText("Score: $score", screenWidth / 2f, screenHeight / 2f - 100f, paint)
             canvas.drawText("Highscore: $highScore", screenWidth / 2f, screenHeight / 2f - 20f, paint)
 
-            // Uniform button color - same blue as platforms
-            val buttonColor = Color.rgb(50, 150, 200)  // Blue platform color
+            // Uniform button color
+            val buttonColor = Color.rgb(50, 150, 200)
 
             // PLAY AGAIN BUTTON
             val playAgainButtonY = screenHeight / 2f + 80f
@@ -537,7 +642,7 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
         }
         canvas.drawRoundRect(x, y, x + width, y + height, 15f, 15f, buttonPaint)
 
-        // Button border (white outline)
+        // Button border
         val borderPaint = Paint().apply {
             this.color = Color.WHITE
             style = Paint.Style.STROKE
@@ -546,7 +651,7 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
         }
         canvas.drawRoundRect(x, y, x + width, y + height, 15f, 15f, borderPaint)
 
-        // Button text (clean, no icons)
+        // Button text
         val textPaint = Paint().apply {
             this.color = Color.WHITE
             textSize = 45f
