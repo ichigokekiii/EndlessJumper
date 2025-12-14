@@ -28,6 +28,16 @@ class FirebaseManager {
         fun onFailure(error: String)
     }
 
+    interface SaveCallback {
+        fun onSuccess()
+        fun onFailure(error: String)
+    }
+
+    interface PlayerNameCallback {
+        fun onSuccess(name: String)
+        fun onFailure(error: String)
+    }
+
     // Data class for leaderboard entries
     data class LeaderboardEntry(
         val userId: String = "",
@@ -60,7 +70,71 @@ class FirebaseManager {
         return auth.currentUser != null
     }
 
-    // Save highscore to Firestore
+    // Save player name
+    fun savePlayerName(name: String, callback: SaveCallback) {
+        val userId = getCurrentUserId()
+        if (userId == null) {
+            callback.onFailure("User not signed in")
+            return
+        }
+
+        db.collection("highscores")
+            .document(userId)
+            .update("username", name)
+            .addOnSuccessListener {
+                Log.d(TAG, "Player name saved: $name")
+                callback.onSuccess()
+            }
+            .addOnFailureListener { e ->
+                // If document doesn't exist yet, create it with the name
+                val userData = hashMapOf(
+                    "userId" to userId,
+                    "username" to name,
+                    "score" to 0,
+                    "timestamp" to System.currentTimeMillis()
+                )
+                db.collection("highscores")
+                    .document(userId)
+                    .set(userData)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "Player name saved (new document): $name")
+                        callback.onSuccess()
+                    }
+                    .addOnFailureListener { error ->
+                        Log.e(TAG, "Failed to save player name", error)
+                        callback.onFailure(error.message ?: "Failed to save name")
+                    }
+            }
+    }
+
+    // Load player name
+    fun loadPlayerName(callback: PlayerNameCallback) {
+        val userId = getCurrentUserId()
+        if (userId == null) {
+            callback.onFailure("User not signed in")
+            return
+        }
+
+        db.collection("highscores")
+            .document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val name = document.getString("username") ?: "Anonymous"
+                    Log.d(TAG, "Player name loaded: $name")
+                    callback.onSuccess(name)
+                } else {
+                    Log.d(TAG, "No player name found")
+                    callback.onSuccess("Anonymous")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Failed to load player name", e)
+                callback.onFailure(e.message ?: "Failed to load name")
+            }
+    }
+
+    // Save highscore to Firestore (with current username)
     fun saveHighscore(score: Int, callback: ((Boolean) -> Unit)? = null) {
         val userId = getCurrentUserId()
         if (userId == null) {
@@ -69,24 +143,40 @@ class FirebaseManager {
             return
         }
 
-        val highscoreData = hashMapOf(
-            "userId" to userId,
-            "username" to "Player",  // We'll make this customizable later
-            "score" to score,
-            "timestamp" to System.currentTimeMillis()
-        )
-
-        Log.d(TAG, "Attempting to save highscore: $score for user: $userId")
-
+        // First, get the current username
         db.collection("highscores")
             .document(userId)
-            .set(highscoreData)
-            .addOnSuccessListener {
-                Log.d(TAG, "✅ Highscore saved successfully: $score")
-                callback?.invoke(true)
+            .get()
+            .addOnSuccessListener { document ->
+                val currentUsername = if (document.exists()) {
+                    document.getString("username") ?: "Anonymous"
+                } else {
+                    "Anonymous"
+                }
+
+                val highscoreData = hashMapOf(
+                    "userId" to userId,
+                    "username" to currentUsername,
+                    "score" to score,
+                    "timestamp" to System.currentTimeMillis()
+                )
+
+                Log.d(TAG, "Attempting to save highscore: $score for user: $userId")
+
+                db.collection("highscores")
+                    .document(userId)
+                    .set(highscoreData)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "✅ Highscore saved successfully: $score")
+                        callback?.invoke(true)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "❌ Failed to save highscore: ${e.message}", e)
+                        callback?.invoke(false)
+                    }
             }
             .addOnFailureListener { e ->
-                Log.e(TAG, "❌ Failed to save highscore: ${e.message}", e)
+                Log.e(TAG, "Failed to load username", e)
                 callback?.invoke(false)
             }
     }
