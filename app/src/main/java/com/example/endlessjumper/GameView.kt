@@ -668,46 +668,83 @@ class GameView(context: Context, private val firebaseManager: FirebaseManager) :
 
         if (powerUpManager.hasShield) {
             val timeLeft = powerUpManager.getShieldTimeLeft()
+
+            // Draw shield icon
+            drawPowerUpIndicator(canvas, 40f, y - 15f, Color.rgb(100, 149, 237), "SHIELD")
+
+            // Draw time text
             paint.color = Color.rgb(100, 149, 237)
-            paint.textSize = 45f
+            paint.textSize = 40f
             paint.textAlign = Paint.Align.LEFT
             paint.setShadowLayer(3f, 1f, 1f, Color.BLACK)
-            canvas.drawText("🛡️ Shield: ${timeLeft}s", 40f, y, paint)
+            canvas.drawText("Shield: ${timeLeft}s", 90f, y, paint)
             paint.clearShadowLayer()
             y += 55f
         }
 
         if (powerUpManager.superJumpActive) {
             val timeLeft = powerUpManager.getSuperJumpTimeLeft()
+
+            // Draw rocket icon
+            drawPowerUpIndicator(canvas, 40f, y - 15f, Color.rgb(255, 99, 71), "JUMP")
+
             paint.color = Color.rgb(255, 99, 71)
-            paint.textSize = 45f
+            paint.textSize = 40f
             paint.textAlign = Paint.Align.LEFT
             paint.setShadowLayer(3f, 1f, 1f, Color.BLACK)
-            canvas.drawText("🚀 Jump: ${timeLeft}s", 40f, y, paint)
+            canvas.drawText("Jump: ${timeLeft}s", 90f, y, paint)
             paint.clearShadowLayer()
             y += 55f
         }
 
         if (powerUpManager.speedBoostActive) {
             val timeLeft = powerUpManager.getSpeedBoostTimeLeft()
+
+            // Draw lightning icon
+            drawPowerUpIndicator(canvas, 40f, y - 15f, Color.rgb(255, 215, 0), "SPEED")
+
             paint.color = Color.rgb(255, 215, 0)
-            paint.textSize = 45f
+            paint.textSize = 40f
             paint.textAlign = Paint.Align.LEFT
             paint.setShadowLayer(3f, 1f, 1f, Color.BLACK)
-            canvas.drawText("⚡ Speed: ${timeLeft}s", 40f, y, paint)
+            canvas.drawText("Speed: ${timeLeft}s", 90f, y, paint)
             paint.clearShadowLayer()
             y += 55f
         }
 
         if (powerUpManager.slowFallActive) {
             val timeLeft = powerUpManager.getSlowFallTimeLeft()
+
+            // Draw parachute icon
+            drawPowerUpIndicator(canvas, 40f, y - 15f, Color.rgb(135, 206, 250), "FLOAT")
+
             paint.color = Color.rgb(135, 206, 250)
-            paint.textSize = 45f
+            paint.textSize = 40f
             paint.textAlign = Paint.Align.LEFT
             paint.setShadowLayer(3f, 1f, 1f, Color.BLACK)
-            canvas.drawText("🪂 Float: ${timeLeft}s", 40f, y, paint)
+            canvas.drawText("Float: ${timeLeft}s", 90f, y, paint)
             paint.clearShadowLayer()
         }
+    }
+
+    private fun drawPowerUpIndicator(canvas: Canvas, x: Float, y: Float, color: Int, type: String) {
+        val indicatorPaint = Paint().apply {
+            style = Paint.Style.FILL
+            this.color = color
+            isAntiAlias = true
+        }
+
+        // Draw small circle indicator
+        canvas.drawCircle(x, y, 20f, indicatorPaint)
+
+        // Draw white border
+        val borderPaint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            this.color = Color.WHITE
+            isAntiAlias = true
+        }
+        canvas.drawCircle(x, y, 20f, borderPaint)
     }
 
     private inner class GameThread : Thread() {
